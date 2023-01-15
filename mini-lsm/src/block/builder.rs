@@ -30,7 +30,10 @@ impl BlockBuilder {
     #[must_use]
     pub fn add(&mut self, key: &[u8], value: &[u8]) -> bool {
         assert!(!key.is_empty(), "key must not be empty");
-        if self.estimated_size() + key.len() + value.len() + SIZEOF_U16 * 3 > self.block_size
+        let data_size = self.estimated_size() + key.len() + value.len() + SIZEOF_U16 * 3;
+        println!("data_size: {}", data_size);
+        //if self.estimated_size() + key.len() + value.len() + SIZEOF_U16 * 3 > self.block_size
+        if data_size > self.block_size
             && !self.is_empty()
         {
             return false;
