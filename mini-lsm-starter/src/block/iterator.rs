@@ -94,22 +94,49 @@ impl BlockIterator {
         }
     }
 
+    pub fn seek_to(&mut self, idx: usize) {
+        if idx >= self.block.offsets.len() {
+            self.key.clear();
+            self.value.clear();
+            return;
+        }
+        let offset = self.block.offsets[idx] as usize;
+        let low_key = self.block.parse_block_data_item(offset);
+
+        let value = self
+            .block
+            .parse_block_data_item(offset + SIZEOF_U16 + low_key.len());
+        self.key = low_key;
+        self.value = value;
+    }
+
     /// Seek to the first key that >= `key`.
     pub fn seek_to_key(&mut self, key: &[u8]) {
-        for (idx, offset) in self.block.offsets.iter().enumerate() {
-            self.idx = idx;
-            let tmp_key = self.block.parse_block_data_item(*offset as usize);
-            let value = self
-                .block
-                .parse_block_data_item((*offset as usize) + SIZEOF_U16 + tmp_key.len());
+        let mut low = 0;
+        let mut high = self.block.offsets.len();
+        while low < high {
+            let mid = low + (high - low) / 2;
+            let offset = self.block.offsets[mid] as usize;
+            let mid_key = self.block.parse_block_data_item(offset);
 
-            if tmp_key < (*key).to_vec() {
-                continue;
-            } else {
-                self.key = tmp_key;
-                self.value = value;
-                break;
+            match mid_key.cmp(&key.to_vec()) {
+                std::cmp::Ordering::Less => low = mid + 1,
+                std::cmp::Ordering::Greater => high = mid,
+                std::cmp::Ordering::Equal => {
+                    let value = self
+                        .block
+                        .parse_block_data_item(offset + SIZEOF_U16 + mid_key.len());
+                    self.key = mid_key;
+                    self.value = value;
+                    return;
+                }
             }
         }
+        // 如果在data中查找一个不存在的数k，且需要返回>=查找的数
+        // [low, high),  data[low] < k < data[high],
+        // 此时循环结束只有可能是low=high，且而需要返回>= key的（key,
+        // value）,因此返回low及对应的value即可
+        // 同时需要考虑low是否可能超出index。比如[1,2,3,4] 查找5
+        self.seek_to(low);
     }
 }

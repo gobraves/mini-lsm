@@ -37,18 +37,10 @@ impl Block {
         //let count = (&data[data.len() - SIZEOF_U16..]).get_u16() as usize;
         let offsets_start = data.len() - (count + 1) * SIZEOF_U16;
         let block_data = data[0..offsets_start].to_vec();
-        let mut block_offsets: Vec<u16> = Vec::with_capacity(count);
-
-        let mut tmp = 0;
-
-        for (index, item) in data[offsets_start..data.len() - 2].iter().enumerate() {
-            if index % 2 == 0 {
-                tmp = *item as u16 * 256;
-            } else {
-                tmp += *item as u16;
-                block_offsets.push(tmp);
-            }
-        }
+        let block_offsets = data[offsets_start..data.len() - 2]
+            .chunks(2)
+            .map(|mut x| x.get_u16())
+            .collect();
 
         Block {
             data: block_data.to_vec(),
@@ -57,16 +49,9 @@ impl Block {
     }
 
     pub fn parse_block_data_item(&self, offset: usize) -> Vec<u8> {
-        let item_len =
-            usize::from(((self.data[offset] as u16) << 8) + self.data[offset + 1] as u16);
+        let item_len = (&self.data[offset..]).get_u16() as usize;
         self.data[offset + SIZEOF_U16..offset + SIZEOF_U16 + item_len].to_vec()
     }
-
-    //pub fn parse_block_data_value(&self, offset: usize, key_len: usize) -> Vec<u8> {
-    //let value_len =
-    //usize::from(((self.data[offset + key_len + SIZEOF_U16] as u16) << 8) + self.data[offset + key_len + 1] as u16);
-    //self.data[offset + SIZEOF_U16 * 2 + key_len..offset + SIZEOF_U16 * 2 + key_len + value_len].to_vec()
-    //}
 }
 
 #[cfg(test)]
