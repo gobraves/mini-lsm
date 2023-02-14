@@ -12,7 +12,7 @@ pub struct BlockIterator {
     block: Arc<Block>,
     key: Vec<u8>,
     value: Vec<u8>,
-    idx: usize,
+    pub idx: usize,
 }
 
 impl BlockIterator {
@@ -60,8 +60,10 @@ impl BlockIterator {
     }
 
     /// Returns true if the iterator is valid.
+    // 根据index判断valid要小心。
+    // index是0，没有办法判断index本身就是0，还是只是Block的默认值且block不存在
     pub fn is_valid(&self) -> bool {
-        self.idx < self.block.offsets.len() - 1
+        !self.key.is_empty()
     }
 
     /// Seeks to the first key in the block.
@@ -82,31 +84,26 @@ impl BlockIterator {
 
     /// Move to the next key in the block.
     pub fn next(&mut self) {
-        if self.is_valid() {
-            self.idx += 1;
-            let offset = self.block.offsets[self.idx];
-            let key = self.block.parse_block_data_item(offset as usize);
-            let value = self
-                .block
-                .parse_block_data_item((offset as usize) + SIZEOF_U16 + key.len());
-            self.key = key;
-            self.value = value;
-        }
+        self.idx += 1;
+        self.seek_to(self.idx);
     }
 
-    pub fn seek_to(&mut self, idx: usize) {
+    fn seek_to(&mut self, idx: usize) {
         if idx >= self.block.offsets.len() {
             self.key.clear();
             self.value.clear();
             return;
         }
-        let offset = self.block.offsets[idx] as usize;
-        let low_key = self.block.parse_block_data_item(offset);
+        self.seek_to_offset(idx);
+    }
 
+    fn seek_to_offset(&mut self, idx: usize) {
+        let offset = self.block.offsets[idx];
+        let key = self.block.parse_block_data_item(offset as usize);
         let value = self
             .block
-            .parse_block_data_item(offset + SIZEOF_U16 + low_key.len());
-        self.key = low_key;
+            .parse_block_data_item((offset as usize) + SIZEOF_U16 + key.len());
+        self.key = key;
         self.value = value;
     }
 
